@@ -13,5 +13,7 @@ public class ChatResponseDto {
     private String answer;
     private String conversationId;
     private List<CitationDto> citations;
+    /** De-duplicated sources (one per Confluence page / uploaded file) for citation chips. */
+    private List<SourceReferenceDto> sources;
     private Long responseTimeMs;
 }

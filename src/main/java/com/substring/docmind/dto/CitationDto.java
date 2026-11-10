@@ -19,4 +19,13 @@ public class CitationDto {
     private String snippet;
     private Double similarityScore;
     private Map<String, Object> metadata;
+
+    /** "confluence" for synced Confluence pages, "upload" for user-uploaded files. */
+    private String sourceType;
+    /** Human-readable source name: Confluence page title or uploaded file name. */
+    private String sourceTitle;
+    /** Absolute link back to the original source (Confluence web UI URL); null for uploads. */
+    private String sourceUrl;
+    /** Confluence page id, when applicable. */
+    private String pageId;
 }

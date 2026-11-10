@@ -3,6 +3,8 @@ import type {
   ApiResponse,
   ChatRequestDto,
   ChatResponseDto,
+  ConfluenceSyncRunDto,
+  ConfluenceSyncStatusDto,
   DocumentMetadataDto,
   DocumentResponseDto,
   SearchRequestDto,
@@ -29,15 +31,20 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Catch 401 Unauthorized responses, log out, and redirect to /login
+/** Session expired or token rejected: drop the token (keep chats) and go to the login page. */
+function handleUnauthorized() {
+  useAuthStore.getState().expireSession();
+  if (window.location.pathname !== '/login' && window.location.pathname !== '/register') {
+    window.location.href = '/login?expired=1';
+  }
+}
+
+// Catch 401 Unauthorized responses and send the user back to sign in
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
-      useAuthStore.getState().logout();
-      if (window.location.pathname !== '/login' && window.location.pathname !== '/register') {
-        window.location.href = '/login';
-      }
+      handleUnauthorized();
     }
     return Promise.reject(error);
   }
@@ -126,13 +133,34 @@ export const chatApi = {
     });
 
     if (response.status === 401) {
-      useAuthStore.getState().logout();
-      if (window.location.pathname !== '/login' && window.location.pathname !== '/register') {
-        window.location.href = '/login';
-      }
+      handleUnauthorized();
     }
 
     return response;
+  },
+};
+
+// Confluence sync APIs (served under /api/sync, outside the /api/v1 prefix)
+const SYNC_BASE = { baseURL: '/api' } as const;
+
+export const syncApi = {
+  status: async (): Promise<ApiResponse<ConfluenceSyncStatusDto>> => {
+    const { data } = await api.get<ApiResponse<ConfluenceSyncStatusDto>>('/sync/confluence/status', SYNC_BASE);
+    return data;
+  },
+
+  /** Admin only. Starts a background sync; resolves with the RUNNING run record (HTTP 202). */
+  trigger: async (): Promise<ApiResponse<ConfluenceSyncRunDto>> => {
+    const { data } = await api.post<ApiResponse<ConfluenceSyncRunDto>>('/sync/confluence', null, SYNC_BASE);
+    return data;
+  },
+
+  runs: async (limit = 20): Promise<ApiResponse<ConfluenceSyncRunDto[]>> => {
+    const { data } = await api.get<ApiResponse<ConfluenceSyncRunDto[]>>('/sync/confluence/runs', {
+      ...SYNC_BASE,
+      params: { limit },
+    });
+    return data;
   },
 };
 

@@ -23,8 +23,8 @@ const ChunkCard: React.FC<{ chunk: CitationDto; index: number }> = ({ chunk, ind
 
   return (
     <div className={clsx(
-      'border rounded-xl bg-[#1e293b] overflow-hidden group transition-all duration-200',
-      expanded ? 'border-indigo-500/40' : 'border-[#334155] hover:border-[#475569]'
+      'border rounded-xl bg-[#161616] overflow-hidden group transition-all duration-200',
+      expanded ? 'border-neon-500/40' : 'border-[#262626] hover:border-[#3A3A3A]'
     )}>
       {/* Chunk header */}
       <div
@@ -32,8 +32,8 @@ const ChunkCard: React.FC<{ chunk: CitationDto; index: number }> = ({ chunk, ind
         onClick={() => setExpanded(!expanded)}
       >
         {/* Index badge */}
-        <div className="flex-shrink-0 w-8 h-8 bg-indigo-500/15 border border-indigo-500/25 rounded-lg flex items-center justify-center">
-          <span className="text-xs font-bold text-indigo-400">#{chunk.chunkIndex ?? index}</span>
+        <div className="flex-shrink-0 w-8 h-8 bg-neon-500/15 border border-neon-500/25 rounded-lg flex items-center justify-center">
+          <span className="text-xs font-bold text-neon-400">#{chunk.chunkIndex ?? index}</span>
         </div>
 
         {/* File + meta */}
@@ -54,7 +54,7 @@ const ChunkCard: React.FC<{ chunk: CitationDto; index: number }> = ({ chunk, ind
         {/* Right controls */}
         <div className="flex items-center gap-2 flex-shrink-0">
           {pct != null && (
-            <span className="text-xs bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-2 py-0.5 rounded-full font-medium">
+            <span className="text-xs bg-neon-500/10 text-neon-400 border border-neon-500/20 px-2 py-0.5 rounded-full font-medium">
               {pct}%
             </span>
           )}
@@ -73,14 +73,14 @@ const ChunkCard: React.FC<{ chunk: CitationDto; index: number }> = ({ chunk, ind
 
       {/* Expanded content */}
       {expanded && (
-        <div className="border-t border-[#334155]/60 animate-fade-in">
+        <div className="border-t border-[#262626]/60 animate-fade-in">
           {/* Full text */}
           <div className="mx-4 mt-3 mb-0">
-            <div className="relative bg-[#0f172a] border border-[#334155] rounded-xl p-4">
+            <div className="relative bg-[#0A0A0A] border border-[#262626] rounded-xl p-4">
               <p className="text-sm text-slate-200 leading-relaxed whitespace-pre-wrap font-mono text-xs">{chunk.snippet}</p>
               <button
                 onClick={handleCopy}
-                className="absolute top-2 right-2 p-1.5 bg-[#1e293b] hover:bg-[#334155] border border-[#334155] rounded-lg text-slate-400 hover:text-white transition-colors"
+                className="absolute top-2 right-2 p-1.5 bg-[#161616] hover:bg-[#262626] border border-[#262626] rounded-lg text-slate-400 hover:text-white transition-colors"
               >
                 {copied ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
               </button>
@@ -97,7 +97,7 @@ const ChunkCard: React.FC<{ chunk: CitationDto; index: number }> = ({ chunk, ind
                 {Object.entries(chunk.metadata)
                   .filter(([k]) => !['snippet'].includes(k))
                   .map(([k, v]) => (
-                    <div key={k} className="bg-[#0f172a] border border-[#334155] rounded-lg p-2">
+                    <div key={k} className="bg-[#0A0A0A] border border-[#262626] rounded-lg p-2">
                       <p className="text-[10px] text-slate-500 capitalize font-medium">{k.replace(/_/g, ' ')}</p>
                       <p className="text-xs text-slate-200 mt-0.5 truncate font-mono">{String(v)}</p>
                     </div>
@@ -154,19 +154,19 @@ const ChunksView: React.FC = () => {
   const uniqueFiles = [...new Set(chunks.map((c) => c.fileName))];
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-[#0f172a]">
+    <div className="flex flex-col h-full overflow-hidden bg-[#0A0A0A]">
       {/* Header */}
-      <div className="px-6 py-4 border-b border-[#1e293b] flex-shrink-0 bg-[#111827]">
+      <div className="px-6 py-4 border-b border-[#161616] flex-shrink-0 bg-[#0F0F0F]">
         {/* Title row */}
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 bg-indigo-500/20 rounded-lg flex items-center justify-center">
-              <Layers className="w-3.5 h-3.5 text-indigo-400" />
+            <div className="w-7 h-7 bg-neon-500/20 rounded-lg flex items-center justify-center">
+              <Layers className="w-3.5 h-3.5 text-neon-400" />
             </div>
             <h2 className="text-sm font-semibold text-white">Vector Chunks</h2>
             {hasLoaded && (
               <div className="flex items-center gap-1.5">
-                <span className="text-xs bg-[#1e293b] border border-[#334155] text-slate-300 px-2 py-0.5 rounded-full">
+                <span className="text-xs bg-[#161616] border border-[#262626] text-slate-300 px-2 py-0.5 rounded-full">
                   {filtered.length} / {chunks.length}
                 </span>
                 {uniqueFiles.length > 1 && (
@@ -178,7 +178,7 @@ const ChunksView: React.FC = () => {
           <button
             onClick={() => loadChunks()}
             disabled={isLoading}
-            className="flex items-center gap-1.5 text-xs border border-[#334155] hover:border-[#475569] text-slate-400 hover:text-white px-3 py-1.5 rounded-lg transition-colors disabled:opacity-40"
+            className="flex items-center gap-1.5 text-xs border border-[#262626] hover:border-[#3A3A3A] text-slate-400 hover:text-white px-3 py-1.5 rounded-lg transition-colors disabled:opacity-40"
           >
             <RefreshCw className={clsx('w-3.5 h-3.5', isLoading && 'animate-spin')} />
             Refresh
@@ -187,7 +187,7 @@ const ChunksView: React.FC = () => {
 
         {/* Vector query input */}
         <div className="flex gap-2 mb-3">
-          <div className="flex-1 flex items-center gap-2 bg-[#1e293b] border border-[#334155] rounded-xl px-3 py-2 focus-within:border-indigo-500/50 transition-colors">
+          <div className="flex-1 flex items-center gap-2 bg-[#161616] border border-[#262626] rounded-xl px-3 py-2 focus-within:border-neon-500/50 transition-colors">
             <Database className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
             <input
               type="text"
@@ -201,7 +201,7 @@ const ChunksView: React.FC = () => {
           <button
             onClick={() => loadChunks()}
             disabled={isLoading}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white text-sm font-medium rounded-xl transition-all shadow-sm shadow-indigo-500/25"
+            className="flex items-center gap-2 px-4 py-2 bg-neon-600 hover:bg-neon-500 disabled:opacity-40 text-black text-sm font-medium rounded-xl transition-all shadow-sm shadow-neon-500/25"
           >
             {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <BookOpen className="w-4 h-4" />}
             Load
@@ -210,7 +210,7 @@ const ChunksView: React.FC = () => {
 
         {/* Text filter */}
         {hasLoaded && chunks.length > 0 && (
-          <div className="flex items-center gap-2 bg-[#1e293b] border border-[#334155] rounded-xl px-3 py-2 focus-within:border-indigo-500/30 transition-colors">
+          <div className="flex items-center gap-2 bg-[#161616] border border-[#262626] rounded-xl px-3 py-2 focus-within:border-neon-500/30 transition-colors">
             <Search className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
             <input
               type="text"
@@ -230,7 +230,7 @@ const ChunksView: React.FC = () => {
       <div className="flex-1 overflow-y-auto p-6">
         {!hasLoaded && !isLoading && (
           <div className="flex flex-col items-center justify-center h-full text-center">
-            <div className="w-20 h-20 bg-[#1e293b] rounded-2xl flex items-center justify-center mb-5 border border-[#334155]">
+            <div className="w-20 h-20 bg-[#161616] rounded-2xl flex items-center justify-center mb-5 border border-[#262626]">
               <Layers className="w-9 h-9 text-slate-600" />
             </div>
             <h3 className="text-lg font-semibold text-slate-300 mb-2">Explore Vector Chunks</h3>
@@ -241,7 +241,7 @@ const ChunksView: React.FC = () => {
             </p>
             <button
               onClick={() => loadChunks()}
-              className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-xl transition-all shadow-sm shadow-indigo-500/25"
+              className="flex items-center gap-2 px-5 py-2.5 bg-neon-600 hover:bg-neon-500 text-black text-sm font-medium rounded-xl transition-all shadow-sm shadow-neon-500/25"
             >
               <Layers className="w-4 h-4" /> Load All Chunks
             </button>
@@ -251,8 +251,8 @@ const ChunksView: React.FC = () => {
         {isLoading && (
           <div className="flex flex-col items-center justify-center h-full gap-3">
             <div className="relative">
-              <Loader2 className="w-10 h-10 text-indigo-400 animate-spin" />
-              <div className="absolute inset-0 blur-xl bg-indigo-500/20 rounded-full" />
+              <Loader2 className="w-10 h-10 text-neon-400 animate-spin" />
+              <div className="absolute inset-0 blur-xl bg-neon-500/20 rounded-full" />
             </div>
             <div className="text-center">
               <p className="text-slate-300 font-medium">Fetching chunks from vector store…</p>

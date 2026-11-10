@@ -2,6 +2,9 @@ package com.substring.docmind.exception;
 
 import com.substring.docmind.dto.ApiResponse;
 import com.substring.docmind.repository.DocumentMetadataRepo;
+import com.substring.docmind.service.confluence.ConfluenceApiException;
+import com.substring.docmind.service.confluence.SyncAlreadyRunningException;
+import org.springframework.security.access.AccessDeniedException;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -89,6 +92,29 @@ public class GlobalExceptionHandler {
                 );
     }
 
+
+    @ExceptionHandler(SyncAlreadyRunningException.class)
+    public ResponseEntity<ApiResponse<Object>> handleSyncRunning(SyncAlreadyRunningException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiResponse.builder().success(false).message(ex.getMessage()).data(ex.getRunId())
+                        .timestamp(LocalDateTime.now()).build());
+    }
+
+    @ExceptionHandler(ConfluenceApiException.class)
+    public ResponseEntity<ApiResponse<Object>> handleConfluence(ConfluenceApiException ex) {
+        logger.warn("Confluence unavailable: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(ApiResponse.builder().success(false).message(ex.getMessage())
+                        .timestamp(LocalDateTime.now()).build());
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiResponse<Object>> handleAccessDenied(AccessDeniedException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(ApiResponse.builder().success(false)
+                        .message("You do not have permission to perform this action")
+                        .timestamp(LocalDateTime.now()).build());
+    }
 
 //    generalized exception handling
 

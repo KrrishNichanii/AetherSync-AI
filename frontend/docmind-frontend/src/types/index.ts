@@ -54,14 +54,67 @@ export interface DocumentResponseDto {
   message: string;
 }
 
+export type SourceType = 'confluence' | 'upload';
+
 export interface CitationDto {
-  documentId: string;
+  documentId: string | null;
   fileName: string;
   chunkIndex: number;
   pageNumber: number | null;
   snippet: string;
   similarityScore: number;
   metadata: Record<string, unknown>;
+  /** Present on responses from AetherSync backends; absent on older stored messages. */
+  sourceType?: SourceType;
+  sourceTitle?: string;
+  sourceUrl?: string | null;
+  pageId?: string | null;
+}
+
+/** De-duplicated source used for citation chips; `index` matches "[Source n]" in the prompt. */
+export interface SourceReferenceDto {
+  index: number;
+  title: string;
+  url: string | null;
+  sourceType: SourceType;
+  bestScore: number | null;
+}
+
+/* ─── Confluence sync ─── */
+
+export type SyncRunStatus = 'RUNNING' | 'SUCCESS' | 'PARTIAL_SUCCESS' | 'FAILED';
+
+export interface ConfluenceSyncRunDto {
+  id: number;
+  spaceKey: string;
+  triggerType: 'MANUAL' | 'SCHEDULED' | 'STARTUP';
+  status: SyncRunStatus;
+  triggeredBy: string | null;
+  startedAt: string;
+  finishedAt: string | null;
+  durationMs: number | null;
+  pagesScanned: number;
+  pagesAdded: number;
+  pagesUpdated: number;
+  pagesUnchanged: number;
+  pagesDeleted: number;
+  pagesFailed: number;
+  chunksWritten: number;
+  errorMessage: string | null;
+}
+
+export interface ConfluenceSyncStatusDto {
+  configured: boolean;
+  scheduleEnabled: boolean;
+  cron: string;
+  baseUrl: string;
+  spaceKey: string;
+  running: boolean;
+  syncedPages: number;
+  indexedChunks: number;
+  lastSuccessfulSyncAt: string | null;
+  currentRun: ConfluenceSyncRunDto | null;
+  lastRun: ConfluenceSyncRunDto | null;
 }
 
 export interface ChatRequestDto {
@@ -76,6 +129,7 @@ export interface ChatResponseDto {
   answer: string;
   conversationId: string;
   citations: CitationDto[];
+  sources?: SourceReferenceDto[];
   responseTimeMs: number;
 }
 
@@ -90,6 +144,7 @@ export interface SearchResultDto {
   query: string;
   totalMatches: number;
   matches: CitationDto[];
+  sources?: SourceReferenceDto[];
 }
 
 // Conversation and Message Types

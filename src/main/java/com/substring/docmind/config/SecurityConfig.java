@@ -2,6 +2,7 @@ package com.substring.docmind.config;
 
 import com.substring.docmind.entity.Role;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
@@ -15,6 +16,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
@@ -45,17 +47,33 @@ public class SecurityConfig {
                                                 "/v3/api-docs/**",
                                                 "/swagger-ui/**",
                                                 "/swagger-ui.html").permitAll()
-                                        // Explicitly permit or adjust your chat/document routes if testing publicly:
-                                        .requestMatchers("/api/v1/chat/**", "/api/v1/documents/**").permitAll()
                                         .requestMatchers("/api/v1/admin/**").hasRole(Role.ADMIN.toString())
-                                        .requestMatchers("/api/v1/**").hasRole(Role.USER.toString())
+                                        // Chat, documents etc. need a valid JWT; admins can use them too.
+                                        .requestMatchers("/api/v1/**").hasAnyRole(Role.USER.toString(), Role.ADMIN.toString())
+                                        // Confluence sync: status for any signed-in user; trigger is ADMIN via @PreAuthorize
+                                        .requestMatchers("/api/sync/**").authenticated()
                                         .anyRequest().authenticated()
                 )
+                // The JWT filter must run inside the security chain; otherwise every
+                // authorization rule above sees an anonymous user.
+                .addFilterBefore(authenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                // Missing/expired/invalid token -> 401 (the frontend logs out and redirects to login on 401).
+                // Authenticated but not allowed -> 403.
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
         ;
 
         return httpSecurity.build();
     }
 
+
+    /** Stop Boot from also registering the JWT filter as a plain servlet filter outside security. */
+    @Bean
+    public FilterRegistrationBean<JwtAuthenticationFilter> jwtFilterServletRegistration(JwtAuthenticationFilter filter) {
+        FilterRegistrationBean<JwtAuthenticationFilter> registration = new FilterRegistrationBean<>(filter);
+        registration.setEnabled(false);
+        return registration;
+    }
 
     @Bean
     public PasswordEncoder passwordEncoder() {

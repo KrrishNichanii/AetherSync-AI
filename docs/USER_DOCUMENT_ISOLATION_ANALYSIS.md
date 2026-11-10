@@ -1,6 +1,6 @@
-# DocMind Backend Analysis & User Document Isolation Architecture
+# AetherSync AI Backend Analysis & User Document Isolation Architecture
 
-This document breaks down the current state of the DocMind backend, explains existing workflows, and details step-by-step changes required to ensure each user can only access and chat with their own documents.
+This document breaks down the current state of the AetherSync AI (formerly DocMind) backend, explains existing workflows, and details step-by-step changes required to ensure each user can only access and chat with their own documents.
 
 ---
 

@@ -119,9 +119,9 @@ const ChatItem: React.FC<{
       transition={{ duration: 0.18 }}
       onClick={isEditing ? undefined : onSelect}
       className={clsx(
-        'group relative flex items-center justify-between gap-2.5 p-3 rounded-xl border transition-all duration-200 cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500',
+        'group relative flex items-center justify-between gap-2.5 p-3 rounded-xl border transition-all duration-200 cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-500',
         isActive
-          ? 'border-indigo-500/60 bg-indigo-500/10 shadow-sm shadow-indigo-500/10 text-white'
+          ? 'border-neon-500/60 bg-neon-500/10 shadow-sm shadow-neon-500/10 text-white'
           : 'border-slate-800 bg-slate-900/50 hover:border-slate-700 hover:bg-slate-850 text-slate-300 hover:text-white'
       )}
     >
@@ -129,7 +129,7 @@ const ChatItem: React.FC<{
         <div
           className={clsx(
             'p-1.5 rounded-lg flex-shrink-0 mt-0.5 transition-colors',
-            isActive ? 'bg-indigo-500/20 text-indigo-400' : 'bg-slate-950 text-slate-400 group-hover:text-slate-300'
+            isActive ? 'bg-neon-500/20 text-neon-400' : 'bg-slate-950 text-slate-400 group-hover:text-slate-300'
           )}
         >
           <MessageSquare className="w-3.5 h-3.5" />
@@ -144,13 +144,13 @@ const ChatItem: React.FC<{
                 value={editTitle}
                 onChange={(e) => setEditTitle(e.target.value)}
                 onKeyDown={handleKeyDown}
-                className="w-full bg-slate-950 border border-indigo-500 text-white text-xs rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                className="w-full bg-slate-950 border border-neon-500 text-white text-xs rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-neon-400"
                 aria-label="Edit chat title"
               />
               <button
                 onClick={handleSaveEdit}
                 aria-label="Save chat title"
-                className="p-1 hover:bg-indigo-500/20 text-indigo-400 rounded transition focus-visible:ring-2 focus-visible:ring-indigo-500"
+                className="p-1 hover:bg-neon-500/20 text-neon-400 rounded transition focus-visible:ring-2 focus-visible:ring-neon-500"
               >
                 <Check className="w-3.5 h-3.5" />
               </button>
@@ -183,7 +183,7 @@ const ChatItem: React.FC<{
           <button
             onClick={handleStartEdit}
             aria-label="Rename conversation"
-            className="p-1 rounded-lg transition-all text-xs opacity-0 group-hover:opacity-100 hover:bg-slate-800 text-slate-400 hover:text-indigo-300 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-indigo-500"
+            className="p-1 rounded-lg transition-all text-xs opacity-0 group-hover:opacity-100 hover:bg-slate-800 text-slate-400 hover:text-neon-300 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-neon-500"
             title="Rename chat"
           >
             <Edit2 className="w-3 h-3" />
@@ -264,7 +264,7 @@ export const ChatsPanel: React.FC = () => {
         <button
           onClick={handleNewChat}
           aria-label="Start a new chat"
-          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 active:scale-[0.98] text-white text-xs sm:text-sm font-medium rounded-xl transition-all shadow-lg shadow-indigo-600/20 hover:shadow-indigo-600/30 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-neon-600 hover:bg-neon-500 active:scale-[0.98] text-black text-xs sm:text-sm font-medium rounded-xl transition-all shadow-lg shadow-neon-600/20 hover:shadow-neon-600/30 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-500"
         >
           <Plus className="w-4 h-4" />
           <span>New Chat</span>
@@ -279,7 +279,7 @@ export const ChatsPanel: React.FC = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search conversations..."
-              className="w-full bg-slate-900 border border-slate-800 focus:border-indigo-500 text-white placeholder-slate-500 text-xs rounded-lg pl-8 pr-7 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors"
+              className="w-full bg-slate-900 border border-slate-800 focus:border-neon-500 text-white placeholder-slate-500 text-xs rounded-lg pl-8 pr-7 py-1.5 focus:outline-none focus:ring-1 focus:ring-neon-500 transition-colors"
             />
             {searchQuery && (
               <button
@@ -310,7 +310,7 @@ export const ChatsPanel: React.FC = () => {
             className="flex flex-col items-center justify-center h-56 text-center px-4"
           >
             <div className="w-12 h-12 bg-slate-900 border border-slate-800 rounded-2xl flex items-center justify-center mb-3 shadow-inner">
-              <MessageSquarePlus className="w-6 h-6 text-indigo-400/80" />
+              <MessageSquarePlus className="w-6 h-6 text-neon-400/80" />
             </div>
             <p className="text-xs text-slate-300 font-semibold">No chat history yet</p>
             <p className="text-[11px] text-slate-500 mt-1 max-w-[200px] leading-relaxed">
@@ -318,7 +318,7 @@ export const ChatsPanel: React.FC = () => {
             </p>
             <button
               onClick={handleNewChat}
-              className="mt-3 inline-flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 font-medium underline underline-offset-4 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded"
+              className="mt-3 inline-flex items-center gap-1 text-xs text-neon-400 hover:text-neon-300 font-medium underline underline-offset-4 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-500 rounded"
             >
               Start first chat &rarr;
             </button>

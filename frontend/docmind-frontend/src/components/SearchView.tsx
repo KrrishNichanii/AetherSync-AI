@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import {
   Search, Loader2, FileText, ChevronDown, ChevronUp,
   AlertCircle, Layers, SlidersHorizontal, Tag,
-  BarChart2,
+  BarChart2, BookOpen, ExternalLink,
 } from 'lucide-react';
 import { chatApi } from '../services/api';
+import { safeHttpUrl } from '../utils/sources';
 import { useDocumentStore } from '../store/documentStore';
 import type { CitationDto, SearchResultDto } from '../types';
 import { clsx } from 'clsx';
@@ -18,10 +19,10 @@ const SEARCH_TYPES = [
 ];
 
 const COLOR_MAP: Record<string, string> = {
-  indigo: 'bg-indigo-600 text-white',
+  indigo: 'bg-neon-600 text-black',
   blue: 'bg-blue-600 text-white',
   emerald: 'bg-emerald-600 text-white',
-  purple: 'bg-purple-600 text-white',
+  purple: 'bg-neon-700 text-black',
 };
 
 function getScoreColor(score: number) {
@@ -35,23 +36,39 @@ const ResultCard: React.FC<{ match: CitationDto; index: number }> = ({ match, in
   const score = match.similarityScore ?? 0;
   const pct = (score * 100).toFixed(1);
   const { bar, badge, label } = getScoreColor(score);
+  const title = match.sourceTitle || match.fileName;
+  const sourceUrl = safeHttpUrl(match.sourceUrl);
 
   return (
-    <div className="border border-[#334155] rounded-xl overflow-hidden bg-[#1e293b] hover:border-[#475569] transition-all duration-200 animate-fade-in group">
+    <div className="border border-[#262626] rounded-xl overflow-hidden bg-[#161616] hover:border-[#3A3A3A] transition-all duration-200 animate-fade-in group">
       {/* Top color accent strip */}
       <div className={clsx('h-0.5 w-full', bar)} />
 
       <div className="p-4">
         {/* Header row */}
         <div className="flex items-start gap-3 mb-3">
-          <div className="flex-shrink-0 w-7 h-7 bg-[#0f172a] border border-[#334155] rounded-lg flex items-center justify-center text-xs font-bold text-slate-400 group-hover:border-indigo-500/40 transition-colors">
+          <div className="flex-shrink-0 w-7 h-7 bg-[#0A0A0A] border border-[#262626] rounded-lg flex items-center justify-center text-xs font-bold text-slate-400 group-hover:border-neon-500/40 transition-colors">
             {index + 1}
           </div>
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <div>
-                <p className="text-sm font-semibold text-white truncate max-w-xs">{match.fileName}</p>
+                {sourceUrl ? (
+                  <a
+                    href={sourceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-sm font-semibold text-white hover:text-neon-300 max-w-xs transition-colors"
+                    title="Open in Confluence"
+                  >
+                    <BookOpen className="w-3.5 h-3.5 flex-shrink-0 text-neon-400" />
+                    <span className="truncate">{title}</span>
+                    <ExternalLink className="w-3 h-3 flex-shrink-0 opacity-60" />
+                  </a>
+                ) : (
+                  <p className="text-sm font-semibold text-white truncate max-w-xs">{title}</p>
+                )}
                 <div className="flex items-center gap-2 mt-0.5">
                   {match.pageNumber && (
                     <span className="text-xs text-slate-500 flex items-center gap-0.5">
@@ -74,7 +91,7 @@ const ResultCard: React.FC<{ match: CitationDto; index: number }> = ({ match, in
         </div>
 
         {/* Similarity bar */}
-        <div className="w-full bg-[#0f172a] rounded-full h-1 mb-3">
+        <div className="w-full bg-[#0A0A0A] rounded-full h-1 mb-3">
           <div className={clsx('h-1 rounded-full transition-all duration-500', bar)} style={{ width: `${pct}%` }} />
         </div>
 
@@ -86,7 +103,7 @@ const ResultCard: React.FC<{ match: CitationDto; index: number }> = ({ match, in
         {match.snippet.length > 200 && (
           <button
             onClick={() => setExpanded(!expanded)}
-            className="flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 mt-2 transition-colors"
+            className="flex items-center gap-1 text-xs text-neon-400 hover:text-neon-300 mt-2 transition-colors"
           >
             {expanded ? <><ChevronUp className="w-3 h-3" /> Show less</> : <><ChevronDown className="w-3 h-3" /> Show more</>}
           </button>
@@ -94,12 +111,12 @@ const ResultCard: React.FC<{ match: CitationDto; index: number }> = ({ match, in
 
         {/* Metadata pills */}
         {match.metadata && Object.keys(match.metadata).length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-[#334155]/60">
+          <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-[#262626]/60">
             {Object.entries(match.metadata)
               .filter(([k]) => !['documentId', 'fileName', 'snippet'].includes(k))
               .slice(0, 5)
               .map(([k, v]) => (
-                <span key={k} className="inline-flex items-center gap-1 text-xs bg-[#0f172a] text-slate-400 px-2 py-0.5 rounded-full border border-[#334155]">
+                <span key={k} className="inline-flex items-center gap-1 text-xs bg-[#0A0A0A] text-slate-400 px-2 py-0.5 rounded-full border border-[#262626]">
                   <Tag className="w-2.5 h-2.5" />
                   <span className="text-slate-500">{k}:</span> {String(v)}
                 </span>
@@ -147,18 +164,18 @@ const SearchView: React.FC = () => {
   ];
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-[#0f172a]">
+    <div className="flex flex-col h-full overflow-hidden bg-[#0A0A0A]">
       {/* Search header */}
-      <div className="px-6 py-4 border-b border-[#1e293b] flex-shrink-0 bg-[#111827]">
+      <div className="px-6 py-4 border-b border-[#161616] flex-shrink-0 bg-[#0F0F0F]">
         {/* Title row */}
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 bg-indigo-500/20 rounded-lg flex items-center justify-center">
-              <Search className="w-3.5 h-3.5 text-indigo-400" />
+            <div className="w-7 h-7 bg-neon-500/20 rounded-lg flex items-center justify-center">
+              <Search className="w-3.5 h-3.5 text-neon-400" />
             </div>
             <h2 className="text-sm font-semibold text-white">Semantic Search</h2>
             {selectedDoc && (
-              <span className="text-xs bg-indigo-500/15 text-indigo-400 px-2 py-0.5 rounded-full border border-indigo-500/25">
+              <span className="text-xs bg-neon-500/15 text-neon-400 px-2 py-0.5 rounded-full border border-neon-500/25">
                 {selectedDoc.filename}
               </span>
             )}
@@ -168,8 +185,8 @@ const SearchView: React.FC = () => {
             className={clsx(
               'flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-all',
               showFilters
-                ? 'bg-indigo-500/20 border-indigo-500/40 text-indigo-400'
-                : 'border-[#334155] text-slate-400 hover:text-white'
+                ? 'bg-neon-500/20 border-neon-500/40 text-neon-400'
+                : 'border-[#262626] text-slate-400 hover:text-white'
             )}
           >
             <SlidersHorizontal className="w-3 h-3" />
@@ -187,7 +204,7 @@ const SearchView: React.FC = () => {
                 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all flex-shrink-0',
                 selectedType === i
                   ? COLOR_MAP[type.color] + ' shadow-sm'
-                  : 'bg-[#1e293b] border border-[#334155] text-slate-400 hover:text-white'
+                  : 'bg-[#161616] border border-[#262626] text-slate-400 hover:text-white'
               )}
             >
               <span>{type.icon}</span>
@@ -198,7 +215,7 @@ const SearchView: React.FC = () => {
 
         {/* Input */}
         <div className="flex gap-2">
-          <div className="flex-1 flex items-center gap-2 bg-[#1e293b] border border-[#334155] rounded-xl px-4 py-2.5 focus-within:border-indigo-500/50 transition-colors">
+          <div className="flex-1 flex items-center gap-2 bg-[#161616] border border-[#262626] rounded-xl px-4 py-2.5 focus-within:border-neon-500/50 transition-colors">
             <Search className="w-4 h-4 text-slate-400 flex-shrink-0" />
             <input
               type="text"
@@ -217,7 +234,7 @@ const SearchView: React.FC = () => {
           <button
             onClick={handleSearch}
             disabled={!query.trim() || isSearching}
-            className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white text-sm font-medium rounded-xl transition-all shadow-sm shadow-indigo-500/30"
+            className="flex items-center gap-2 px-5 py-2.5 bg-neon-600 hover:bg-neon-500 disabled:opacity-40 text-black text-sm font-medium rounded-xl transition-all shadow-sm shadow-neon-500/30"
           >
             {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
             Search
@@ -226,17 +243,17 @@ const SearchView: React.FC = () => {
 
         {/* Advanced filters */}
         {showFilters && (
-          <div className="mt-3 p-4 bg-[#0f172a] rounded-xl border border-[#334155] animate-fade-in">
+          <div className="mt-3 p-4 bg-[#0A0A0A] rounded-xl border border-[#262626] animate-fade-in">
             <div className="grid grid-cols-2 gap-6">
               <div>
                 <div className="flex justify-between mb-2">
                   <label className="text-xs text-slate-400 font-medium">Top Results</label>
-                  <span className="text-xs font-bold text-indigo-400">{topK}</span>
+                  <span className="text-xs font-bold text-neon-400">{topK}</span>
                 </div>
                 <input
                   type="range" min={1} max={25} value={topK}
                   onChange={(e) => setTopK(Number(e.target.value))}
-                  className="w-full h-1.5 accent-indigo-500 bg-[#334155] rounded-full"
+                  className="w-full h-1.5 accent-neon-500 bg-[#262626] rounded-full"
                 />
                 <div className="flex justify-between mt-1 text-[10px] text-slate-600">
                   <span>1</span><span>25</span>
@@ -245,12 +262,12 @@ const SearchView: React.FC = () => {
               <div>
                 <div className="flex justify-between mb-2">
                   <label className="text-xs text-slate-400 font-medium">Min Similarity</label>
-                  <span className="text-xs font-bold text-indigo-400">{(minSimilarity * 100).toFixed(0)}%</span>
+                  <span className="text-xs font-bold text-neon-400">{(minSimilarity * 100).toFixed(0)}%</span>
                 </div>
                 <input
                   type="range" min={0} max={1} step={0.05} value={minSimilarity}
                   onChange={(e) => setMinSimilarity(Number(e.target.value))}
-                  className="w-full h-1.5 accent-indigo-500 bg-[#334155] rounded-full"
+                  className="w-full h-1.5 accent-neon-500 bg-[#262626] rounded-full"
                 />
                 <div className="flex justify-between mt-1 text-[10px] text-slate-600">
                   <span>0%</span><span>100%</span>
@@ -268,7 +285,7 @@ const SearchView: React.FC = () => {
               <button
                 key={q}
                 onClick={() => setQuery(q)}
-                className="text-xs bg-[#1e293b] border border-[#334155] text-slate-400 hover:text-indigo-400 hover:border-indigo-500/40 px-2.5 py-1 rounded-full transition-colors"
+                className="text-xs bg-[#161616] border border-[#262626] text-slate-400 hover:text-neon-400 hover:border-neon-500/40 px-2.5 py-1 rounded-full transition-colors"
               >
                 {q}
               </button>
@@ -281,7 +298,7 @@ const SearchView: React.FC = () => {
       <div className="flex-1 overflow-y-auto p-6">
         {!results && !isSearching && (
           <div className="flex flex-col items-center justify-center h-full text-center">
-            <div className="w-20 h-20 bg-[#1e293b] rounded-2xl flex items-center justify-center mb-5 border border-[#334155]">
+            <div className="w-20 h-20 bg-[#161616] rounded-2xl flex items-center justify-center mb-5 border border-[#262626]">
               <Search className="w-9 h-9 text-slate-600" />
             </div>
             <h3 className="text-lg font-semibold text-slate-300 mb-2">Search your documents</h3>
@@ -294,8 +311,8 @@ const SearchView: React.FC = () => {
         {isSearching && (
           <div className="flex flex-col items-center justify-center h-full gap-3">
             <div className="relative">
-              <Loader2 className="w-10 h-10 text-indigo-400 animate-spin" />
-              <div className="absolute inset-0 blur-xl bg-indigo-500/20 rounded-full" />
+              <Loader2 className="w-10 h-10 text-neon-400 animate-spin" />
+              <div className="absolute inset-0 blur-xl bg-neon-500/20 rounded-full" />
             </div>
             <div className="text-center">
               <p className="text-slate-300 font-medium">Searching vector store…</p>
@@ -307,16 +324,16 @@ const SearchView: React.FC = () => {
         {results && !isSearching && (
           <div>
             {/* Results summary bar */}
-            <div className="flex items-center justify-between mb-4 pb-4 border-b border-[#1e293b]">
+            <div className="flex items-center justify-between mb-4 pb-4 border-b border-[#161616]">
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2">
-                  <BarChart2 className="w-4 h-4 text-indigo-400" />
+                  <BarChart2 className="w-4 h-4 text-neon-400" />
                   <span className="text-sm font-medium text-white">
                     {results.totalMatches} result{results.totalMatches !== 1 ? 's' : ''}
                   </span>
                 </div>
                 <span className="text-slate-500 text-sm">for</span>
-                <span className="text-sm font-semibold text-indigo-400">"{results.query}"</span>
+                <span className="text-sm font-semibold text-neon-400">"{results.query}"</span>
               </div>
 
               <div className="flex items-center gap-2">

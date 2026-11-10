@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import ReactMarkdown from 'react-markdown';
+import React, { useState, useRef, useEffect, useCallback, useMemo, createContext, useContext } from 'react';
+import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import Prism from 'prismjs';
 import 'prismjs/components/prism-javascript';
@@ -15,8 +15,8 @@ import 'prismjs/components/prism-yaml';
 import 'prismjs/components/prism-css';
 import 'prismjs/components/prism-markdown';
 import {
-  Send, Bot, User, Loader2, ChevronDown, ChevronUp, FileText,
-  Zap, Sparkles, RotateCcw, Square, Copy, Check, Wifi, WifiOff,
+  Send, Bot, User, Loader2, ChevronDown, ChevronUp, FileText, BookOpen,
+  Zap, Sparkles, RotateCcw, Square, Copy, Check, Wifi, WifiOff, ExternalLink,
 } from 'lucide-react';
 import { chatApi } from '../services/api';
 import { useDocumentStore } from '../store/documentStore';
@@ -24,43 +24,37 @@ import { useConversationStore } from '../store/conversationStore';
 import type { ConversationMessage, CitationDto } from '../types';
 import { clsx } from 'clsx';
 import toast from 'react-hot-toast';
+import MermaidDiagram from './MermaidDiagram';
+import SourceChips from './SourceChips';
+import { deriveSources, safeHttpUrl } from '../utils/sources';
 
 /* ─── Prompt templates ──────────────────────────────────────────── */
 const PROMPT_TEMPLATES = [
   {
-    category: 'Summarization',
-    icon: '📋',
-    gradient: 'from-indigo-500/15 to-purple-500/15',
-    border: 'border-indigo-500/25',
-    accent: 'text-indigo-400',
+    category: 'Explore the Knowledge Base',
+    icon: '🧭',
     templates: [
-      { label: 'Executive Summary', prompt: 'Provide a concise executive summary of the key points in this document.' },
-      { label: 'Key Findings', prompt: 'What are the key findings and conclusions from this document?' },
-      { label: 'Action Items', prompt: 'List all action items, tasks, and next steps mentioned in this document.' },
+      { label: 'Space Overview', prompt: 'Give me an overview of what is documented in the MFS Confluence space, grouped by topic, with links to the key pages.' },
+      { label: 'Onboarding Guide', prompt: 'I am new to the team. Based on our Confluence documentation, what should I read first and what are the most important concepts?' },
+      { label: 'Recent Decisions', prompt: 'Summarize the key technical decisions and their rationale documented in Confluence, citing the source pages.' },
     ],
   },
   {
-    category: 'Legal & Compliance',
-    icon: '⚖️',
-    gradient: 'from-cyan-500/15 to-blue-500/15',
-    border: 'border-cyan-500/25',
-    accent: 'text-cyan-400',
+    category: 'Architecture & Diagrams',
+    icon: '🗺️',
     templates: [
-      { label: 'Key Clauses', prompt: 'What are the most important clauses and provisions in this document?' },
-      { label: 'Obligations', prompt: 'What obligations and responsibilities are defined in this document?' },
-      { label: 'Risk Analysis', prompt: 'Identify potential risks, liabilities, and red flags in this document.' },
+      { label: 'System Architecture', prompt: 'Explain the system architecture described in our documentation and draw it as a Mermaid flowchart.' },
+      { label: 'Request Flow', prompt: 'Walk through the main request/data flow end to end and illustrate it with a Mermaid sequence diagram.' },
+      { label: 'Data Model', prompt: 'Describe the main entities and their relationships from the documentation as a Mermaid ER diagram.' },
     ],
   },
   {
-    category: 'Analysis',
-    icon: '🔍',
-    gradient: 'from-emerald-500/15 to-teal-500/15',
-    border: 'border-emerald-500/25',
-    accent: 'text-emerald-400',
+    category: 'Operations',
+    icon: '🛠️',
     templates: [
-      { label: 'Data Points', prompt: 'Extract all key data points, statistics, and metrics from this document.' },
-      { label: 'Definitions', prompt: 'List and explain all key terms and definitions used in this document.' },
-      { label: 'Timeline', prompt: 'Create a chronological timeline of all events and dates mentioned.' },
+      { label: 'Runbooks', prompt: 'List the operational runbooks and incident procedures documented in Confluence, with links.' },
+      { label: 'Deployment Steps', prompt: 'How do we deploy to production? Give step-by-step instructions with links to the source pages.' },
+      { label: 'Glossary', prompt: 'Build a glossary of the internal terms and acronyms used across our documentation.' },
     ],
   },
 ];
@@ -111,19 +105,19 @@ const CodeBlock: React.FC<{ language: string; code: string }> = ({ language, cod
   const tokens = grammar ? Prism.tokenize(code, grammar) : [code];
 
   return (
-    <div className="my-3 rounded-xl border border-[#334155] bg-[#090d16] overflow-hidden text-xs shadow-md">
-      <div className="flex items-center justify-between px-3.5 py-2 bg-[#141d2e] border-b border-[#334155] text-slate-400 font-mono text-[11px]">
+    <div className="my-3 rounded-xl border border-[#262626] bg-[#050505] overflow-hidden text-xs shadow-md">
+      <div className="flex items-center justify-between px-3.5 py-2 bg-[#1C1C1C] border-b border-[#262626] text-slate-400 font-mono text-[11px]">
         <div className="flex items-center gap-2">
           <div className="flex gap-1.5">
             <div className="w-2.5 h-2.5 rounded-full bg-red-500/70" />
             <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/70" />
             <div className="w-2.5 h-2.5 rounded-full bg-green-500/70" />
           </div>
-          <span className="font-semibold uppercase tracking-wider text-indigo-400 ml-1">{language || 'code'}</span>
+          <span className="font-semibold uppercase tracking-wider text-neon-400 ml-1">{language || 'code'}</span>
         </div>
         <button
           onClick={handleCopy}
-          className="flex items-center gap-1.5 text-[11px] text-slate-400 hover:text-white px-2 py-1 rounded bg-[#1e293b] hover:bg-[#334155] transition-colors cursor-pointer"
+          className="flex items-center gap-1.5 text-[11px] text-slate-400 hover:text-white px-2 py-1 rounded bg-[#161616] hover:bg-[#262626] transition-colors cursor-pointer"
         >
           {copied ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
           <span>{copied ? 'Copied!' : 'Copy'}</span>
@@ -139,140 +133,124 @@ const CodeBlock: React.FC<{ language: string; code: string }> = ({ language, cod
 };
 
 /* ─── ReactMarkdown Renderer ──────────────────────────────────────── */
-const MarkdownContent: React.FC<{ content: string; isStreaming?: boolean }> = ({ content, isStreaming }) => {
+/*
+ * The components map is defined once at module scope. react-markdown treats each
+ * entry as a component type, so recreating these functions on every render would
+ * remount code blocks and Mermaid diagrams on every streamed token.
+ */
+const StreamingContext = createContext(false);
+
+const MarkdownCode: NonNullable<Components['code']> = ({ className, children }) => {
+  const isStreaming = useContext(StreamingContext);
+  const match = /language-([\w-]+)/.exec(className || '');
+  const codeString = String(children).replace(/\n$/, '');
+  const language = match ? match[1].toLowerCase() : '';
+
+  if (language === 'mermaid') {
+    return <MermaidDiagram code={codeString} isStreaming={isStreaming} />;
+  }
+  if (match || codeString.includes('\n')) {
+    return <CodeBlock language={language} code={codeString} />;
+  }
   return (
-    <div className="text-sm leading-relaxed overflow-hidden text-slate-200 space-y-2">
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        components={{
-          p({ children }) {
-            return <p className="mb-2.5 last:mb-0 leading-relaxed text-slate-200">{children}</p>;
-          },
-          h1({ children }) {
-            return <h1 className="text-xl font-bold text-white mt-4 mb-2 pb-1 border-b border-[#334155] first:mt-0">{children}</h1>;
-          },
-          h2({ children }) {
-            return <h2 className="text-lg font-bold text-white mt-3.5 mb-1.5 first:mt-0">{children}</h2>;
-          },
-          h3({ children }) {
-            return <h3 className="text-base font-semibold text-slate-100 mt-3 mb-1 first:mt-0">{children}</h3>;
-          },
-          h4({ children }) {
-            return <h4 className="text-xs font-bold text-indigo-300 uppercase tracking-wider mt-2.5 mb-1 first:mt-0">{children}</h4>;
-          },
-          ul({ children }) {
-            return <ul className="list-disc ml-5 pl-1 space-y-1.5 my-2 text-slate-200">{children}</ul>;
-          },
-          ol({ children }) {
-            return <ol className="list-decimal ml-5 pl-1 space-y-1.5 my-2 text-slate-200">{children}</ol>;
-          },
-          li({ children }) {
-            return <li className="leading-relaxed pl-0.5">{children}</li>;
-          },
-          blockquote({ children }) {
-            return (
-              <blockquote className="border-l-4 border-indigo-500 bg-indigo-500/10 px-3.5 py-2 rounded-r-lg text-slate-300 italic my-2.5 text-xs leading-relaxed">
-                {children}
-              </blockquote>
-            );
-          },
-          hr() {
-            return <hr className="border-[#334155] my-3.5" />;
-          },
-          a({ href, children }) {
-            return (
-              <a
-                href={href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-indigo-400 hover:text-indigo-300 underline underline-offset-2 transition-colors font-medium"
-              >
-                {children}
-              </a>
-            );
-          },
-          strong({ children }) {
-            return <strong className="font-semibold text-white">{children}</strong>;
-          },
-          em({ children }) {
-            return <em className="italic text-slate-300">{children}</em>;
-          },
-          del({ children }) {
-            return <del className="line-through text-slate-400">{children}</del>;
-          },
-          table({ children }) {
-            return (
-              <div className="my-3 overflow-x-auto rounded-xl border border-[#334155] shadow-sm">
-                <table className="min-w-full divide-y divide-[#334155] text-left text-xs">{children}</table>
-              </div>
-            );
-          },
-          thead({ children }) {
-            return <thead className="bg-[#141d2e]">{children}</thead>;
-          },
-          tbody({ children }) {
-            return <tbody className="divide-y divide-[#1e293b] bg-[#090d16]">{children}</tbody>;
-          },
-          th({ children }) {
-            return <th className="px-3.5 py-2.5 font-semibold text-white">{children}</th>;
-          },
-          td({ children }) {
-            return <td className="px-3.5 py-2 text-slate-300">{children}</td>;
-          },
-          code({ className, children, ...props }) {
-            const match = /language-(\w+)/.exec(className || '');
-            const codeString = String(children).replace(/\n$/, '');
-            const isMultiLine = codeString.includes('\n');
-            if (match || isMultiLine) {
-              return <CodeBlock language={match ? match[1] : ''} code={codeString} />;
-            }
-            return (
-              <code className="px-1.5 py-0.5 mx-0.5 bg-[#090d16] text-indigo-300 rounded text-[13px] font-mono border border-[#334155]">
-                {children}
-              </code>
-            );
-          },
-          pre({ children }) {
-            return <>{children}</>;
-          },
-        }}
+    <code className="px-1.5 py-0.5 mx-0.5 bg-[#050505] text-neon-300 rounded text-[13px] font-mono border border-[#262626]">
+      {children}
+    </code>
+  );
+};
+
+const MARKDOWN_COMPONENTS: Components = {
+  p: ({ children }) => <p className="mb-2.5 last:mb-0 leading-relaxed text-slate-200">{children}</p>,
+  h1: ({ children }) => <h1 className="text-xl font-bold text-white mt-4 mb-2 pb-1 border-b border-[#262626] first:mt-0">{children}</h1>,
+  h2: ({ children }) => <h2 className="text-lg font-bold text-white mt-3.5 mb-1.5 first:mt-0">{children}</h2>,
+  h3: ({ children }) => <h3 className="text-base font-semibold text-slate-100 mt-3 mb-1 first:mt-0">{children}</h3>,
+  h4: ({ children }) => <h4 className="text-xs font-bold text-neon-300 uppercase tracking-wider mt-2.5 mb-1 first:mt-0">{children}</h4>,
+  ul: ({ children }) => <ul className="list-disc ml-5 pl-1 space-y-1.5 my-2 text-slate-200">{children}</ul>,
+  ol: ({ children }) => <ol className="list-decimal ml-5 pl-1 space-y-1.5 my-2 text-slate-200">{children}</ol>,
+  li: ({ children }) => <li className="leading-relaxed pl-0.5">{children}</li>,
+  blockquote: ({ children }) => (
+    <blockquote className="border-l-4 border-neon-500 bg-neon-500/10 px-3.5 py-2 rounded-r-lg text-slate-300 italic my-2.5 text-xs leading-relaxed">
+      {children}
+    </blockquote>
+  ),
+  hr: () => <hr className="border-[#262626] my-3.5" />,
+  a: ({ href, children }) => {
+    // Inline citations from the model point back to Confluence; style them as source links.
+    const external = !!safeHttpUrl(href);
+    return (
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-baseline gap-0.5 text-neon-400 hover:text-neon-300 underline decoration-neon-500/40 hover:decoration-neon-300 underline-offset-2 transition-colors font-medium"
       >
+        {children}
+        {external && <ExternalLink className="w-3 h-3 self-center opacity-70" aria-hidden="true" />}
+      </a>
+    );
+  },
+  strong: ({ children }) => <strong className="font-semibold text-white">{children}</strong>,
+  em: ({ children }) => <em className="italic text-slate-300">{children}</em>,
+  del: ({ children }) => <del className="line-through text-slate-400">{children}</del>,
+  table: ({ children }) => (
+    <div className="my-3 overflow-x-auto rounded-xl border border-[#262626] shadow-sm">
+      <table className="min-w-full divide-y divide-[#262626] text-left text-xs">{children}</table>
+    </div>
+  ),
+  thead: ({ children }) => <thead className="bg-[#1C1C1C]">{children}</thead>,
+  tbody: ({ children }) => <tbody className="divide-y divide-[#161616] bg-[#050505]">{children}</tbody>,
+  th: ({ children }) => <th className="px-3.5 py-2.5 font-semibold text-white">{children}</th>,
+  td: ({ children }) => <td className="px-3.5 py-2 text-slate-300">{children}</td>,
+  code: MarkdownCode,
+  pre: ({ children }) => <>{children}</>,
+};
+
+const REMARK_PLUGINS = [remarkGfm];
+
+const MarkdownContent: React.FC<{ content: string; isStreaming?: boolean }> = ({ content, isStreaming = false }) => (
+  <StreamingContext.Provider value={isStreaming}>
+    <div className="text-sm leading-relaxed overflow-hidden text-slate-200 space-y-2">
+      <ReactMarkdown remarkPlugins={REMARK_PLUGINS} components={MARKDOWN_COMPONENTS}>
         {content}
       </ReactMarkdown>
       {isStreaming && <span className="cursor-blink" />}
     </div>
-  );
-};
+  </StreamingContext.Provider>
+);
 
 /* ─── Citation card ─────────────────────────────────────────────── */
 const CitationCard: React.FC<{ citation: CitationDto; index: number }> = ({ citation, index }) => {
   const [expanded, setExpanded] = useState(false);
   const score = citation.similarityScore ?? 0;
   const pct = (score * 100).toFixed(0);
-  const barColor = score >= 0.8 ? 'bg-emerald-500' : score >= 0.6 ? 'bg-amber-500' : 'bg-red-500';
-  const textColor = score >= 0.8 ? 'text-emerald-400' : score >= 0.6 ? 'text-amber-400' : 'text-red-400';
+  const barColor = score >= 0.8 ? 'bg-neon-500' : score >= 0.6 ? 'bg-amber-500' : 'bg-red-500';
+  const textColor = score >= 0.8 ? 'text-neon-400' : score >= 0.6 ? 'text-amber-400' : 'text-red-400';
 
+  const isConfluence = (citation.sourceType ?? citation.metadata?.source) === 'confluence';
+  const title = citation.sourceTitle || citation.fileName;
+  const url = safeHttpUrl(citation.sourceUrl);
   const ext = citation.fileName?.split('.').pop()?.toLowerCase();
-  const extColors: Record<string, string> = { pdf: 'text-red-400', docx: 'text-blue-400', csv: 'text-green-400', md: 'text-purple-400' };
+  const extColors: Record<string, string> = { pdf: 'text-red-400', docx: 'text-blue-400', csv: 'text-green-400', md: 'text-neon-300' };
 
   return (
-    <div className="border border-[#334155] rounded-xl overflow-hidden bg-[#0f172a] hover:border-[#475569] transition-colors">
+    <div className="border border-[#262626] rounded-xl overflow-hidden bg-[#0A0A0A] hover:border-[#3A3A3A] transition-colors">
       <button
         onClick={() => setExpanded(!expanded)}
         className="w-full flex items-center gap-2.5 p-2.5 text-left cursor-pointer"
       >
-        <span className="flex-shrink-0 w-5 h-5 bg-indigo-500/15 text-indigo-400 rounded-md text-xs flex items-center justify-center font-bold border border-indigo-500/20">
+        <span className="flex-shrink-0 w-5 h-5 bg-neon-500/15 text-neon-400 rounded-md text-xs flex items-center justify-center font-bold border border-neon-500/20">
           {index + 1}
         </span>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
-            <FileText className={clsx('w-3 h-3 flex-shrink-0', extColors[ext ?? ''] ?? 'text-slate-400')} />
-            <p className="text-xs text-slate-200 font-medium truncate">{citation.fileName}</p>
+            {isConfluence
+              ? <BookOpen className="w-3 h-3 flex-shrink-0 text-neon-400" />
+              : <FileText className={clsx('w-3 h-3 flex-shrink-0', extColors[ext ?? ''] ?? 'text-slate-400')} />}
+            <p className="text-xs text-slate-200 font-medium truncate">{title}</p>
             {citation.pageNumber && <span className="text-xs text-slate-500 flex-shrink-0">p.{citation.pageNumber}</span>}
           </div>
-          {/* Similarity bar */}
           <div className="flex items-center gap-2 mt-1">
-            <div className="flex-1 h-1 bg-[#1e293b] rounded-full overflow-hidden">
+            <div className="flex-1 h-1 bg-[#161616] rounded-full overflow-hidden">
               <div className={clsx('h-1 rounded-full', barColor)} style={{ width: `${pct}%` }} />
             </div>
             <span className={clsx('text-[10px] font-bold flex-shrink-0', textColor)}>{pct}%</span>
@@ -281,8 +259,18 @@ const CitationCard: React.FC<{ citation: CitationDto; index: number }> = ({ cita
         {expanded ? <ChevronUp className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />}
       </button>
       {expanded && (
-        <div className="px-3 pb-3 pt-0 border-t border-[#1e293b] animate-fade-in">
-          <p className="text-xs text-slate-400 leading-relaxed mt-2">{citation.snippet}</p>
+        <div className="px-3 pb-3 pt-0 border-t border-[#161616] animate-fade-in">
+          <p className="text-xs text-slate-400 leading-relaxed mt-2 whitespace-pre-line">{citation.snippet}</p>
+          {url && (
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-neon-400 hover:text-neon-300"
+            >
+              Open in Confluence <ExternalLink className="w-3 h-3" />
+            </a>
+          )}
         </div>
       )}
     </div>
@@ -292,9 +280,13 @@ const CitationCard: React.FC<{ citation: CitationDto; index: number }> = ({ cita
 /* ─── Message bubble ────────────────────────────────────────────── */
 const MessageBubble: React.FC<{ message: ConversationMessage }> = ({ message }) => {
   const isUser = message.messageType === 'USER';
-  const [showCitations, setShowCitations] = useState(false);
+  const [showPassages, setShowPassages] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showTime, setShowTime] = useState(false);
+
+  // One chip per Confluence page / uploaded file (citations are per chunk).
+  const sources = useMemo(() => deriveSources(message.citations), [message.citations]);
+  const passageCount = message.citations?.length ?? 0;
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(message.content);
@@ -317,10 +309,10 @@ const MessageBubble: React.FC<{ message: ConversationMessage }> = ({ message }) 
       <div className={clsx(
         'flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center shadow-sm mt-0.5',
         isUser
-          ? 'bg-indigo-600 shadow-indigo-500/30'
-          : 'bg-gradient-to-br from-indigo-500 to-purple-600 shadow-indigo-500/30'
+          ? 'bg-[#161616] border border-[#262626]'
+          : 'bg-neon-500 shadow-neon-500/30'
       )}>
-        {isUser ? <User className="w-3.5 h-3.5 text-white" /> : <Bot className="w-3.5 h-3.5 text-white" />}
+        {isUser ? <User className="w-3.5 h-3.5 text-slate-300" /> : <Bot className="w-3.5 h-3.5 text-black" />}
       </div>
 
       {/* Content */}
@@ -328,19 +320,25 @@ const MessageBubble: React.FC<{ message: ConversationMessage }> = ({ message }) 
         <div className={clsx(
           'rounded-2xl px-4 py-3 text-sm',
           isUser
-            ? 'bg-indigo-600 text-white rounded-tr-sm shadow-sm shadow-indigo-500/20'
-            : 'bg-[#1e293b] border border-[#334155] rounded-tl-sm'
+            ? 'bg-neon-500/10 border border-neon-500/30 rounded-tr-sm'
+            : 'bg-[#161616] border border-[#262626] rounded-tl-sm'
         )}>
           {isUser ? (
             <p className="text-white leading-relaxed whitespace-pre-wrap">{message.content}</p>
           ) : (
             <MarkdownContent content={message.content} isStreaming={message.isStreaming} />
           )}
+
+          {/* Source chips: Confluence page titles linking back to the original page */}
+          {!isUser && !message.isStreaming && sources.length > 0 && (
+            <div className="mt-3 pt-2.5 border-t border-[#262626]">
+              <SourceChips sources={sources} />
+            </div>
+          )}
         </div>
 
-        {/* Footer: citations + actions */}
+        {/* Footer: actions */}
         <div className={clsx('flex items-center gap-2 mt-1.5', isUser ? 'justify-end' : 'justify-start')}>
-          {/* Timestamp */}
           {timeStr && (
             <span className={clsx('text-xs text-slate-600 transition-opacity', showTime ? 'opacity-100' : 'opacity-0')}>
               {timeStr}
@@ -353,36 +351,33 @@ const MessageBubble: React.FC<{ message: ConversationMessage }> = ({ message }) 
             </span>
           )}
 
-          {/* Copy button (assistant only) */}
+          {!isUser && !message.isStreaming && passageCount > 0 && (
+            <button
+              onClick={() => setShowPassages(!showPassages)}
+              className="flex items-center gap-1 text-xs text-slate-500 hover:text-neon-300 transition-colors cursor-pointer"
+            >
+              {passageCount} {passageCount === 1 ? 'passage' : 'passages'}
+              {showPassages ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            </button>
+          )}
+
           {!isUser && !message.isStreaming && message.content && (
             <button
               onClick={handleCopy}
               className="opacity-0 group-hover:opacity-100 flex items-center gap-1 text-xs text-slate-500 hover:text-slate-300 transition-all cursor-pointer"
               title="Copy message"
             >
-              {copied ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
+              {copied ? <Check className="w-3.5 h-3.5 text-neon-400" /> : <Copy className="w-3.5 h-3.5" />}
             </button>
           )}
         </div>
 
-        {/* Citations */}
-        {!isUser && (message.citations?.length ?? 0) > 0 && !message.isStreaming && (
-          <div className="mt-2">
-            <button
-              onClick={() => setShowCitations(!showCitations)}
-              className="flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 transition-colors cursor-pointer"
-            >
-              <FileText className="w-3.5 h-3.5" />
-              {message.citations!.length} source{message.citations!.length > 1 ? 's' : ''}
-              {showCitations ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-            </button>
-            {showCitations && (
-              <div className="mt-2 space-y-1.5 animate-fade-in">
-                {message.citations!.map((c, i) => (
-                  <CitationCard key={i} citation={c} index={i} />
-                ))}
-              </div>
-            )}
+        {/* Retrieved passages (chunk-level detail) */}
+        {!isUser && showPassages && passageCount > 0 && (
+          <div className="mt-2 space-y-1.5 animate-fade-in">
+            {message.citations!.map((c, i) => (
+              <CitationCard key={i} citation={c} index={i} />
+            ))}
           </div>
         )}
       </div>
@@ -393,10 +388,10 @@ const MessageBubble: React.FC<{ message: ConversationMessage }> = ({ message }) 
 /* ─── Typing indicator ───────────────────────────────────────────── */
 const TypingIndicator = () => (
   <div className="flex gap-3 animate-fade-in">
-    <div className="w-8 h-8 flex-shrink-0 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
-      <Bot className="w-3.5 h-3.5 text-white" />
+    <div className="w-8 h-8 flex-shrink-0 rounded-full bg-neon-500 flex items-center justify-center">
+      <Bot className="w-3.5 h-3.5 text-black" />
     </div>
-    <div className="bg-[#1e293b] border border-[#334155] rounded-2xl rounded-tl-sm px-4 py-3">
+    <div className="bg-[#161616] border border-[#262626] rounded-2xl rounded-tl-sm px-4 py-3">
       <div className="flex items-center gap-1 h-4">
         <div className="typing-dot" />
         <div className="typing-dot" />
@@ -703,19 +698,24 @@ const ChatView: React.FC = () => {
   const charCount = input.length;
 
   return (
-    <div className="flex flex-col h-full bg-[#0f172a]">
+    <div className="flex flex-col h-full bg-[#0A0A0A]">
       {/* ── Chat header ── */}
-      <div className="flex items-center justify-between px-6 py-3 border-b border-[#1e293b] flex-shrink-0 bg-[#111827]">
+      <div className="flex items-center justify-between px-6 py-3 border-b border-[#161616] flex-shrink-0 bg-[#0F0F0F]">
         <div className="flex items-center gap-2.5">
-          <div className="w-6 h-6 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center">
-            <Sparkles className="w-3 h-3 text-white" />
+          <div className="w-6 h-6 bg-gradient-to-br from-neon-500 to-neon-700 rounded-lg flex items-center justify-center">
+            <Sparkles className="w-3 h-3 text-black" />
           </div>
           <span className="text-sm font-semibold text-white">
-            {selectedDoc ? selectedDoc.filename : 'All Documents'}
+            {selectedDoc ? selectedDoc.filename : 'Knowledge Base'}
           </span>
           {selectedDoc && (
-            <span className="text-[10px] font-semibold bg-indigo-500/15 text-indigo-400 px-2 py-0.5 rounded-full border border-indigo-500/25 uppercase tracking-wide">
+            <span className="text-[10px] font-semibold bg-neon-500/15 text-neon-400 px-2 py-0.5 rounded-full border border-neon-500/25 uppercase tracking-wide">
               Focused
+            </span>
+          )}
+          {!selectedDoc && (
+            <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-semibold bg-neon-500/10 text-neon-400 px-2 py-0.5 rounded-full border border-neon-500/25 uppercase tracking-wide">
+              <BookOpen className="w-2.5 h-2.5" /> Confluence + uploads
             </span>
           )}
         </div>
@@ -727,8 +727,8 @@ const ChatView: React.FC = () => {
             className={clsx(
               'flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-all cursor-pointer',
               streamingMode
-                ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'
-                : 'bg-[#1e293b] border-[#334155] text-slate-400 hover:text-white'
+                ? 'bg-neon-500/10 border-neon-500/30 text-neon-400 hover:bg-neon-500/15'
+                : 'bg-[#161616] border-[#262626] text-slate-400 hover:text-white'
             )}
             title={streamingMode ? 'Streaming ON — click to disable' : 'Streaming OFF — click to enable'}
           >
@@ -741,7 +741,7 @@ const ChatView: React.FC = () => {
           {messages.length > 0 && (
             <button
               onClick={handleNewChat}
-              className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white border border-[#334155] hover:border-[#475569] px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white border border-[#262626] hover:border-[#3A3A3A] px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
             >
               <RotateCcw className="w-3 h-3" /> New chat
             </button>
@@ -756,19 +756,19 @@ const ChatView: React.FC = () => {
           <div className="animate-fade-in max-w-2xl mx-auto">
             <div className="text-center mb-8">
               <div className="relative inline-block mb-4">
-                <div className="absolute inset-0 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl blur-xl opacity-40" />
-                <div className="relative w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-xl shadow-indigo-500/30">
-                  <Bot className="w-8 h-8 text-white" />
+                <div className="absolute inset-0 bg-gradient-to-br from-neon-500 to-neon-700 rounded-2xl blur-xl opacity-40" />
+                <div className="relative w-16 h-16 bg-gradient-to-br from-neon-500 to-neon-700 rounded-2xl flex items-center justify-center shadow-xl shadow-neon-500/30">
+                  <Bot className="w-8 h-8 text-black" />
                 </div>
               </div>
-              <h2 className="text-2xl font-bold text-white mb-2">DocMind AI</h2>
+              <h2 className="text-2xl font-bold text-white mb-2">AetherSync AI</h2>
               <p className="text-slate-400 text-sm leading-relaxed max-w-sm mx-auto">
                 {selectedDoc
                   ? `Chatting with "${selectedDoc.filename}". Ask anything or pick a template below.`
-                  : 'Ask questions across all your indexed documents, or select one from the sidebar.'}
+                  : 'Ask anything about the team’s Confluence documentation and your uploads. Answers cite their sources and can include live diagrams.'}
               </p>
               {streamingMode && (
-                <div className="mt-3 inline-flex items-center gap-1.5 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-full">
+                <div className="mt-3 inline-flex items-center gap-1.5 text-xs text-neon-400 bg-neon-500/10 border border-neon-500/20 px-3 py-1 rounded-full">
                   <Wifi className="w-3 h-3" /> Real-time streaming enabled
                 </div>
               )}
@@ -777,17 +777,17 @@ const ChatView: React.FC = () => {
             {/* Template grid */}
             <div className="space-y-3">
               {PROMPT_TEMPLATES.map((cat) => (
-                <div key={cat.category} className={clsx('rounded-2xl border bg-gradient-to-br p-4', cat.gradient, cat.border)}>
+                <div key={cat.category} className="rounded-2xl border border-[#262626] bg-[#161616] p-4">
                   <div className="flex items-center gap-2 mb-3">
                     <span className="text-base">{cat.icon}</span>
-                    <h3 className={clsx('text-xs font-bold uppercase tracking-wider', cat.accent)}>{cat.category}</h3>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-neon-400">{cat.category}</h3>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     {cat.templates.map((t) => (
                       <button
                         key={t.label}
                         onClick={() => sendMessage(t.prompt)}
-                        className="text-left p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/8 hover:border-white/15 transition-all text-xs text-slate-200 hover:text-white group cursor-pointer"
+                        className="text-left p-3 rounded-xl bg-[#0F0F0F] hover:bg-neon-500/5 border border-[#262626] hover:border-neon-500/40 transition-all text-xs text-slate-200 hover:text-white group cursor-pointer"
                       >
                         <span className="font-medium block mb-0.5">{t.label}</span>
                         <span className="text-slate-500 text-[10px] line-clamp-2 group-hover:text-slate-400 transition-colors">{t.prompt.slice(0, 55)}…</span>
@@ -812,7 +812,7 @@ const ChatView: React.FC = () => {
       </div>
 
       {/* ── Input area ── */}
-      <div className="px-6 py-4 border-t border-[#1e293b] flex-shrink-0 bg-[#111827]">
+      <div className="px-6 py-4 border-t border-[#161616] flex-shrink-0 bg-[#0F0F0F]">
         {/* Streaming status */}
         {isStreaming && (
           <div className="flex items-center gap-2 mb-2">
@@ -826,8 +826,8 @@ const ChatView: React.FC = () => {
         )}
 
         <div className={clsx(
-          'flex gap-3 items-end bg-[#1e293b] border rounded-2xl px-4 py-3 transition-all',
-          isBusy ? 'border-[#334155]' : 'border-[#334155] focus-within:border-indigo-500/50'
+          'flex gap-3 items-end bg-[#161616] border rounded-2xl px-4 py-3 transition-all',
+          isBusy ? 'border-[#262626]' : 'border-[#262626] focus-within:border-neon-500/50'
         )}>
           <textarea
             ref={inputRef}
@@ -839,7 +839,7 @@ const ChatView: React.FC = () => {
             placeholder={
               isBusy ? 'Waiting for response…' :
               selectedDoc ? `Ask about "${selectedDoc.filename}"…` :
-              'Ask a question about your documents…'
+              'Ask about your Confluence docs or uploads…'
             }
             rows={1}
             disabled={isBusy}
@@ -865,7 +865,7 @@ const ChatView: React.FC = () => {
             <button
               onClick={() => sendMessage(input)}
               disabled={!input.trim() || isBusy}
-              className="flex-shrink-0 p-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl transition-all shadow-sm shadow-indigo-500/25 cursor-pointer"
+              className="flex-shrink-0 p-2 bg-neon-600 hover:bg-neon-500 disabled:opacity-40 disabled:cursor-not-allowed text-black rounded-xl transition-all shadow-sm shadow-neon-500/25 cursor-pointer"
             >
               {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             </button>

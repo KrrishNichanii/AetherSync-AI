@@ -6,6 +6,7 @@ import com.substring.docmind.dto.*;
 import com.substring.docmind.entity.Conversation;
 import com.substring.docmind.entity.User;
 import com.substring.docmind.repository.ConversationRepository;
+import com.substring.docmind.service.confluence.ConfluenceSyncService;
 import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -21,11 +22,7 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
 import java.time.LocalDateTime;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import java.util.stream.Collectors;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -44,13 +41,11 @@ public class RagService {
 
         long startTime = System.currentTimeMillis();
 
-
         String conversationId = request.getConversationId() != null ? request.getConversationId() : UUID.randomUUID().toString();
 
         ensureConversationExists(conversationId, user, request.getQuestion());
 
         log.info("Processing query: '{}', scoped documentId: {}", request.getQuestion(), request.getDocumentId());
-
 
         List<Document> similarDocuments = this.retrieveRelevantDocuments(
                 request.getQuestion(),
@@ -60,27 +55,24 @@ public class RagService {
                 user
         );
 
+        RetrievedContext context = buildContext(similarDocuments);
 
-        List<CitationDto> citationDtos = similarDocuments.stream().map(this::mapToCitation).toList();
-
-        String contextText = buildContextString(similarDocuments);
-
-//        String prompt = buildPrompt(request.getQuestion(), contextText);
-
-        //you have to use conversationId to remember the conversation
-        //ChatMemory
-        //ChatMemoryRepository
         String answer = this.chatClient
                 .prompt()
-                .system(s -> s.param("doc_context", contextText))
+                .system(s -> s.param("doc_context", context.promptText()))
                 .user(request.getQuestion())
-                .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, request.getConversationId()))
+                .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationId))
                 .call().content();
         long responseTime = System.currentTimeMillis() - startTime;
-        log.info("Completed Q&A in {} ms with {} citations", responseTime, citationDtos.size());
-        return ChatResponseDto.builder().answer(answer).conversationId(request.getConversationId() != null ? request.getConversationId() : UUID.randomUUID().toString()).citations(citationDtos).responseTimeMs(responseTime).build();
-
-
+        log.info("Completed Q&A in {} ms with {} citations from {} sources", responseTime,
+                context.citations().size(), context.sources().size());
+        return ChatResponseDto.builder()
+                .answer(answer)
+                .conversationId(conversationId)
+                .citations(context.citations())
+                .sources(context.sources())
+                .responseTimeMs(responseTime)
+                .build();
     }
 
     private void ensureConversationExists(String conversationId, User user, @NotBlank(message = "Question cannot be empty") String question) {
@@ -97,8 +89,6 @@ public class RagService {
                                     .build()
                     );
                 });
-
-
     }
 
 
@@ -116,82 +106,123 @@ public class RagService {
                 requestDto.getMinSimilarity(),
                 user
         );
-        String contextText = buildContextString(relevantDocuments);
-//        String userPrompt = buildPrompt(requestDto.getQuestion(), contextText);
+        String contextText = buildContext(relevantDocuments).promptText();
         return chatClient.prompt()
-                .system(s-> s.param("doc_context",contextText))
+                .system(s -> s.param("doc_context", contextText))
                 .user(requestDto.getQuestion())
-                .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, requestDto.getConversationId()))
+                .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationId))
                 .stream()
                 .content()
                 .concatWith(Flux.just("[DONE]"));
-
-
-    }
-
-
-    private String buildPrompt(@NotBlank(message = "Question cannot be empty") String question, String contextText) {
-
-        if (contextText != null && !contextText.isBlank()) {
-            return String.format("""
-                           Document Context:
-                           ---------------------
-                           %s
-                           ---------------------                                        
-                           User Message / Question: %s             
-                           Instructions:
-                           - If the user's question relates to the document context above, prioritize answering using that context and reference key sections.
-                           - If the user is asking a general question, greeting, or discussing topics beyond the document context, respond helpfully and conversationally using your general knowledge while weaving in relevant document context if applicable
-                    
-                    """, contextText, question);
-        } else {
-            return String.format("""
-                       User Message / Question:
-                       %s                         
-                       Instructions:
-                          - Respond helpfully, accurately, and conversationally to the user's message using your broad knowledge base.
-                    
-                    """, question);
-        }
-
-
-    }
-
-    private String buildContextString(List<Document> similarDocuments) {
-        if (similarDocuments == null || similarDocuments.isEmpty()) {
-            return "";
-        }
-
-        return similarDocuments.stream().map(doc -> {
-            String fileName = (String) doc.getMetadata().getOrDefault("fileName", "Unknown File");
-            Object page = doc.getMetadata().getOrDefault("pageNumber", "N/A");
-            return String.format("[Source: %s | Page: %s]\n%s", fileName, page, doc.getText());
-        }).collect(Collectors.joining("\n\n---\n\n"));
-
     }
 
 
     public SearchResultDto searchSimilarChunks(SearchRequestDto request, User user) {
 
+        List<Document> matchedDocs = retrieveRelevantDocuments(request.getQuery(), request.getDocumentId(), request.getTopK(), request.getSimilaritySearch(), user);
 
-        java.util.List<Document> matchedDocs = retrieveRelevantDocuments(request.getQuery(), request.getDocumentId(), request.getTopK(), request.getSimilaritySearch(), user);
+        RetrievedContext context = buildContext(matchedDocs);
 
-        List<CitationDto> citations = matchedDocs.stream().map(this::mapToCitation).toList();
+        return SearchResultDto.builder()
+                .query(request.getQuery())
+                .totalMatches(context.citations().size())
+                .matches(context.citations())
+                .sources(context.sources())
+                .build();
+    }
 
-        return SearchResultDto.builder().query(request.getQuery()).totalMatches(citations.size()).matches(citations).build();
+    /* ─── Context & citation building ─────────────────────────────── */
 
+    /** Retrieved chunks rendered for the prompt, plus the citations/sources returned to the client. */
+    private record RetrievedContext(String promptText, List<CitationDto> citations, List<SourceReferenceDto> sources) {
+    }
+
+    /**
+     * Groups retrieved chunks by their originating source (Confluence page or uploaded file),
+     * numbers each source, and renders a context block where every chunk carries its
+     * source number, title and URL so the LLM can cite it as a Markdown link.
+     * Source numbers in the prompt match {@link SourceReferenceDto#index()} returned to the UI.
+     */
+    private RetrievedContext buildContext(List<Document> documents) {
+        if (documents == null || documents.isEmpty()) {
+            return new RetrievedContext("", List.of(), List.of());
+        }
+
+        Map<String, SourceAccumulator> sourcesByKey = new LinkedHashMap<>();
+        List<CitationDto> citations = new ArrayList<>(documents.size());
+        StringBuilder prompt = new StringBuilder();
+
+        for (Document doc : documents) {
+            CitationDto citation = mapToCitation(doc);
+            citations.add(citation);
+
+            String key = citation.getSourceUrl() != null ? citation.getSourceUrl()
+                    : citation.getDocumentId() != null ? "doc:" + citation.getDocumentId()
+                    : "title:" + citation.getSourceTitle();
+            SourceAccumulator source = sourcesByKey.computeIfAbsent(key,
+                    k -> new SourceAccumulator(sourcesByKey.size() + 1, citation));
+            source.offer(citation.getSimilarityScore());
+
+            if (!prompt.isEmpty()) {
+                prompt.append("\n\n---\n\n");
+            }
+            prompt.append("[Source ").append(source.index).append("]\n");
+            prompt.append("Title: ").append(citation.getSourceTitle()).append('\n');
+            if (ConfluenceSyncService.SOURCE_CONFLUENCE.equals(citation.getSourceType())) {
+                prompt.append("Type: Confluence page\n");
+            } else {
+                prompt.append("Type: Uploaded document");
+                if (citation.getPageNumber() != null) {
+                    prompt.append(" (page ").append(citation.getPageNumber()).append(')');
+                }
+                prompt.append('\n');
+            }
+            if (citation.getSourceUrl() != null) {
+                prompt.append("URL: ").append(citation.getSourceUrl()).append('\n');
+            }
+            prompt.append("Content:\n").append(doc.getText());
+        }
+
+        List<SourceReferenceDto> sources = sourcesByKey.values().stream()
+                .map(SourceAccumulator::toDto)
+                .toList();
+        return new RetrievedContext(prompt.toString(), citations, sources);
+    }
+
+    private static final class SourceAccumulator {
+        private final int index;
+        private final CitationDto first;
+        private Double bestScore;
+
+        SourceAccumulator(int index, CitationDto first) {
+            this.index = index;
+            this.first = first;
+        }
+
+        void offer(Double score) {
+            if (score != null && (bestScore == null || score > bestScore)) {
+                bestScore = score;
+            }
+        }
+
+        SourceReferenceDto toDto() {
+            return new SourceReferenceDto(index, first.getSourceTitle(), first.getSourceUrl(),
+                    first.getSourceType(), bestScore);
+        }
     }
 
 
     private CitationDto mapToCitation(Document document) {
 
         Map<String, Object> meta = document.getMetadata();
+        boolean confluence = ConfluenceSyncService.SOURCE_CONFLUENCE.equals(meta.get("source"));
+
         UUID docId = null;
         if (meta.get("documentId") != null) {
             try {
                 docId = UUID.fromString(meta.get("documentId").toString());
             } catch (Exception ignore) {
-
+                // not a UUID; leave null
             }
         }
         Integer chunkIndex = null;
@@ -206,13 +237,33 @@ public class RagService {
             pageNumber = n.intValue();
         }
 
-        Double score = null;
-        if (meta.get("distance") instanceof Number n) {
+        Double score = document.getScore();
+        if (score == null && meta.get("distance") instanceof Number n) {
             score = 1.0 - n.doubleValue();
         }
-        return CitationDto.builder().documentId(docId).fileName((String) meta.getOrDefault("fileName", "Unknown")).chunkIndex(chunkIndex).pageNumber(pageNumber).snippet(document.getText()).similarityScore(score).metadata(meta).build();
+
+        String title = confluence
+                ? stringOr(meta.get("pageTitle"), "Untitled Confluence page")
+                : stringOr(meta.get("fileName"), "Unknown");
+
+        return CitationDto.builder()
+                .documentId(docId)
+                .fileName(stringOr(meta.get("fileName"), title))
+                .chunkIndex(chunkIndex)
+                .pageNumber(pageNumber)
+                .snippet(document.getText())
+                .similarityScore(score)
+                .metadata(meta)
+                .sourceType(confluence ? ConfluenceSyncService.SOURCE_CONFLUENCE : "upload")
+                .sourceTitle(title)
+                .sourceUrl(confluence ? stringOr(meta.get("url"), null) : null)
+                .pageId(confluence ? stringOr(meta.get("pageId"), null) : null)
+                .build();
     }
 
+    private static String stringOr(Object value, String fallback) {
+        return value != null && !value.toString().isBlank() ? value.toString() : fallback;
+    }
 
 
     //    this is very important document that fetches the similar result from vector db
@@ -233,23 +284,19 @@ public class RagService {
         FilterExpressionBuilder b = new FilterExpressionBuilder();
         Filter.Expression filterExpression;
         if (documentId != null) {
-            log.info("Filtering from document :");
-
-            filterExpression =
-                    b.and(
-//                            introduced userId filter
-                            b.eq("userId", user.getId().toString()),
-                            b.eq("documentId", documentId.toString())
-
-                    ).build();
-
+            // Scoped to one of the user's own uploaded documents.
+            filterExpression = b.and(
+                    b.eq("userId", user.getId().toString()),
+                    b.eq("documentId", documentId.toString())
+            ).build();
         } else {
-            // introduced userId filter
-            filterExpression = b.eq("userId", user.getId().toString()).build();
-
+            // The user's own uploads plus the shared Confluence knowledge base.
+            filterExpression = b.or(
+                    b.eq("userId", user.getId().toString()),
+                    b.eq("source", ConfluenceSyncService.SOURCE_CONFLUENCE)
+            ).build();
         }
         searchRequestBuilder.filterExpression(filterExpression);
-
 
         try {
             List<Document> documents = vectorStore.similaritySearch(searchRequestBuilder.build());
@@ -259,9 +306,5 @@ public class RagService {
             log.error("Similarity search failed for query: '{}'", query, e);
             return Collections.emptyList();
         }
-
-
     }
-
-
 }

@@ -1,6 +1,6 @@
-# DocMind — Database-Backed Chat Memory & Conversation History Architecture
+# AetherSync AI — Database-Backed Chat Memory & Conversation History Architecture
 
-This document provides an end-to-end design and step-by-step implementation guide for storing chat history and conversational memory in PostgreSQL corresponding to each `conversationId` in **DocMind**.
+This document provides an end-to-end design and step-by-step implementation guide for storing chat history and conversational memory in PostgreSQL corresponding to each `conversationId` in **AetherSync AI** (formerly DocMind).
 
 ---
 

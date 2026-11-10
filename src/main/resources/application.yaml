@@ -2,6 +2,6 @@ spring:
   profiles:
     active: dev
   application:
-    name: docmind-backend
+    name: aethersync-backend
 server:
   port: 8081

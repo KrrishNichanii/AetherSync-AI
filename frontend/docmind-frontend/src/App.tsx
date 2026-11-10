@@ -30,7 +30,7 @@ const Dashboard: React.FC = () => {
   }, [token, user, fetchDocuments, loadChats]);
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-[#0f172a]">
+    <div className="flex flex-col h-screen overflow-hidden bg-[#0A0A0A]">
       <Navbar onUploadClick={() => setIsUploadOpen(true)} />
 
       <div className="flex flex-1 overflow-hidden">
@@ -69,17 +69,17 @@ const App: React.FC = () => {
         position="bottom-right"
         toastOptions={{
           style: {
-            background: '#1e293b',
+            background: '#161616',
             color: '#f1f5f9',
-            border: '1px solid #334155',
+            border: '1px solid #262626',
             borderRadius: '12px',
             fontSize: '14px',
           },
           success: {
-            iconTheme: { primary: '#22c55e', secondary: '#1e293b' },
+            iconTheme: { primary: '#22c55e', secondary: '#161616' },
           },
           error: {
-            iconTheme: { primary: '#ef4444', secondary: '#1e293b' },
+            iconTheme: { primary: '#ef4444', secondary: '#161616' },
           },
         }}
       />

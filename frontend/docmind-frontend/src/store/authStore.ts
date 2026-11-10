@@ -13,6 +13,19 @@ interface AuthState {
   login: (username: string, password: string) => Promise<void>;
   register: (username: string, email: string, password: string) => Promise<UserDto>;
   logout: () => void;
+  /** Clears the expired/invalid session but keeps the user's locally stored chats. */
+  expireSession: () => void;
+}
+
+/** True when the JWT's `exp` claim is in the past (or the token is malformed). */
+export function isTokenExpired(token: string, skewSeconds = 15): boolean {
+  try {
+    const payload = token.split('.')[1];
+    const json = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+    return typeof json.exp !== 'number' || json.exp * 1000 <= Date.now() + skewSeconds * 1000;
+  } catch {
+    return true;
+  }
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -72,6 +85,14 @@ export const useAuthStore = create<AuthState>()(
         useDocumentStore.getState().reset();
         useConversationStore.getState().reset();
 
+        set({ user: null, token: null, isLoading: false });
+      },
+
+      expireSession: () => {
+        // Unlike logout(), do NOT wipe localStorage chat history: it is keyed per user
+        // and reappears after signing in again.
+        useDocumentStore.getState().reset();
+        useConversationStore.getState().reset();
         set({ user: null, token: null, isLoading: false });
       },
     }),

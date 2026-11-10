@@ -59,6 +59,19 @@ app:
     allowed-methods: GET,POST,PUT,DELETE,OPTIONS
     allowed-headers: "*"
 
+# Confluence knowledge-base sync (AetherSync AI)
+confluence:
+  base-url: ${CONFLUENCE_BASE_URL:https://vector11.atlassian.net/wiki}
+  username: ${CONFLUENCE_USERNAME:}
+  api-token: ${CONFLUENCE_API_TOKEN:}
+  space-key: ${CONFLUENCE_SPACE_KEY:MFS}
+  page-limit: 100
+  sync:
+    enabled: ${CONFLUENCE_SYNC_ENABLED:true}
+    # second minute hour day month weekday — default: every 6 hours
+    cron: ${CONFLUENCE_SYNC_CRON:0 0 */6 * * *}
+    on-startup: ${CONFLUENCE_SYNC_ON_STARTUP:false}
+
 # JWT Configurations
 jwt:
   secret: ${JWT_SECRET:sdafasfasfasdhfojhascapfdaDHAfbashfabfashfasbfshfdasfhqf}
