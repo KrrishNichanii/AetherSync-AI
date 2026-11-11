@@ -1,9 +1,10 @@
 # Database Configurations
 spring:
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5434}/${DB_NAME:docmind}
+    url: jdbc:postgresql://db.ecobojixrkxnhhggtlah.supabase.co:5432/postgres
     username: ${DB_USER:postgres}
     password: ${DB_PASSWORD:postgres}
+
 
   jpa:
     hibernate:

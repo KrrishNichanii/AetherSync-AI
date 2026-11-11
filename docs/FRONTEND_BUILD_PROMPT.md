@@ -8,7 +8,7 @@ one instruction, in order (run 2 only after 1 is done and working).
 > Paste everything below into your coding agent as one instruction.
 
 You are extending an existing Vite + React 19 + TypeScript + Tailwind v4
-frontend (`frontend/docmind-frontend/`) for **DocMind**, a RAG document
+frontend (`../frontend/aethersync-frontend`) for **DocMind**, a RAG document
 Q&A app. The backend is Spring Boot with stateless JWT auth. Read the
 existing files under `src/` before writing new ones; preserve the current
 visual language (dark slate + indigo, Tailwind utility classes,
@@ -165,7 +165,7 @@ looping error toasts.
 > it doesn't build it.
 
 The functional rebuild is done and working. Now do a UI/UX polish pass over
-`frontend/docmind-frontend/`. Keep the existing dark slate/indigo visual
+`../frontend/aethersync-frontend`. Keep the existing dark slate/indigo visual
 identity — this is refinement, not a re-theme. Use judgment on which of
 these give the most value for this app rather than doing all of them
 mechanically:

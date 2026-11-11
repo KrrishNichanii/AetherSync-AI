@@ -477,6 +477,6 @@ Wired in `ProjectConfig`: `ChatClient` with `defaultSystem(...)` and `MessageCha
 | Security / JWT | `.../config/SecurityConfig.java`, `JwtAuthenticationFilter.java` |
 | Config | `src/main/resources/application-dev.yml` |
 | Tests | `src/test/java/.../service/confluence/*Test.java` (13 tests) |
-| Chat UI, Markdown, streaming | `frontend/docmind-frontend/src/components/ChatView.tsx` |
+| Chat UI, Markdown, streaming | `../frontend/aethersync-frontend` |
 | Mermaid / citations | `components/MermaidDiagram.tsx`, `components/SourceChips.tsx`, `utils/sources.ts` |
 | Operations guide | `docs/CONFLUENCE_SYNC.md` |
