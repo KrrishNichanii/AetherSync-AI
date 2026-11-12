@@ -1,0 +1,96 @@
+# Database Configurations
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://db.ecobojixrkxnhhggtlah.supabase.co:5432/postgres}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD:postgres}
+
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+  # Google GenAI / Gemini Configurations
+  ai:
+    google:
+      genai:
+        api-key: ${GEMINI_API_KEY:demo-key}
+        chat:
+          options:
+            model: ${GEMINI_CHAT_MODEL:gemini-2.5-flash}
+            temperature: 0.2
+        # Embeddings use a separate client with their own connection properties.
+        # gemini-2.5-flash is a chat model and cannot produce embeddings;
+        # gemini-embedding-001 defaults to 3072 dims, which exceeds pgvector's
+        # 2000-dim HNSW limit, so we request 768 to match the vector_store table.
+        embedding:
+          api-key: ${GEMINI_API_KEY:demo-key}
+          text:
+            model: ${GEMINI_EMBEDDING_MODEL:gemini-embedding-001}
+            dimensions: 768
+
+    # Vectorstore Configurations (Correctly placed at the same indentation level as google)
+    vectorstore:
+      pgvector:
+        index-type: HNSW
+        distance-type: COSINE_DISTANCE
+        dimensions: 768
+        table-name: vector_store
+        schema-name: public
+        initialize-schema: true
+
+  servlet:
+    multipart:
+      max-file-size: 25MB
+      max-request-size: 50MB
+
+# App Configurations
+app:
+  rag:
+    chunk-size: 700
+    top-k: 5
+    similarity-threshold: 0.0
+
+  cors:
+    allowed-origins: "*"
+    allowed-methods: GET,POST,PUT,DELETE,OPTIONS
+    allowed-headers: "*"
+
+# Confluence knowledge-base sync (AetherSync AI)
+confluence:
+  base-url: ${CONFLUENCE_BASE_URL:https://vector11.atlassian.net/wiki}
+  username: ${CONFLUENCE_USERNAME:}
+  api-token: ${CONFLUENCE_API_TOKEN:}
+  space-key: ${CONFLUENCE_SPACE_KEY:MFS}
+  page-limit: 100
+  sync:
+    enabled: ${CONFLUENCE_SYNC_ENABLED:true}
+    # second minute hour day month weekday — default: every 6 hours
+    cron: ${CONFLUENCE_SYNC_CRON:0 0 */6 * * *}
+    on-startup: ${CONFLUENCE_SYNC_ON_STARTUP:false}
+
+# JWT Configurations
+jwt:
+  secret: ${JWT_SECRET:sdafasfasfasdhfojhascapfdaDHAfbashfabfashfasbfshfdasfhqf}
+  expiration: 3600000
+
+bootui:
+  enabled: ON
+
+Logging:
+  level:
+    org:
+      springframework:
+        ai:
+          chat:
+            client:
+              advisor: DEBUG
+          google:
+            genai: DEBUG
+    com:
+      google:
+        genai: DEBUG

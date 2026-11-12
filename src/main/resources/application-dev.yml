@@ -1,7 +1,7 @@
 # Database Configurations
 spring:
   datasource:
-    url: jdbc:postgresql://db.ecobojixrkxnhhggtlah.supabase.co:5432/postgres
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://db.ecobojixrkxnhhggtlah.supabase.co:5432/postgres}
     username: ${DB_USER:postgres}
     password: ${DB_PASSWORD:postgres}
 
